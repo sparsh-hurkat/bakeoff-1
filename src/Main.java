@@ -20,6 +20,7 @@ public class Main extends PApplet
     int hits = 0; //number of successful clicks
     int misses = 0; //number of missed clicks
     Robot robot; //initialized in setup
+    int hoveredRow = -1; // -1 = no row hovered
 
     int numRepeats = 1; //sets the number of times each button repeats in the test
 
@@ -63,16 +64,14 @@ public class Main extends PApplet
     }
 
 
-    public void draw()
-    {
-        background(0); //set background to black
+    public void draw() {
+        background(0); // black background
 
-        if (trialNum >= trials.size()) //check to see if test is over
-        {
-            float timeTaken = (finishTime-startTime) / 1000f;
-            float penalty = constrain(((95f-((float)hits*100f/(float)(hits+misses)))*.2f),0,100);
-            fill(255); //set fill color to white
-            //write to screen (not console)
+        if (trialNum >= trials.size()) { // test finished
+            float timeTaken = (finishTime - startTime) / 1000f;
+            float penalty = constrain(((95f - ((float)hits * 100f / (float)(hits + misses))) * .2f), 0, 100);
+            fill(255);
+            textAlign(CENTER, CENTER);
             text("Finished!", width / 2, height / 2);
             text("Hits: " + hits, width / 2, height / 2 + 20);
             text("Misses: " + misses, width / 2, height / 2 + 40);
@@ -80,19 +79,46 @@ public class Main extends PApplet
             text("Total time taken: " + timeTaken + " sec", width / 2, height / 2 + 80);
             text("Average time for each button: " + nf((timeTaken)/(float)(hits+misses),0,3) + " sec", width / 2, height / 2 + 100);
             text("Average time for each button + penalty: " + nf(((timeTaken)/(float)(hits+misses) + penalty),0,3) + " sec", width / 2, height / 2 + 140);
-            return; //return, nothing else to do now test is over
+            return;
         }
 
-        fill(255); //set fill color to white
-        text((trialNum + 1) + " of " + trials.size(), 40, 20); //display what trial the user is on
+        // display trial number
+        fill(255);
+        textAlign(LEFT, CENTER);
+        text((trialNum + 1) + " of " + trials.size(), 40, 20);
 
-        for (int i = 0; i < 16; i++)// for all button
-            drawButton(i); //draw button
+        // determine hovered row
+        float hoverZone = buttonSize * 1.5f; // vertical range for hover
+        for (int r = 0; r < 4; r++) {
+            float rowTop = margin + r * (buttonSize + padding);
+            float rowBottom = rowTop + buttonSize;
+            float rowCenterY = (rowTop + rowBottom) / 2f;
 
-        fill(255, 0, 0, 200); // set fill color to translucent red
-        ellipse(mouseX, mouseY, 20, 20); //draw user cursor as a circle with a diameter of 20
+            if (mouseY >= rowCenterY - hoverZone/2 && mouseY <= rowCenterY + hoverZone/2) {
+                hoveredRow = r; // save hovered row
 
+                // draw numbers above each button in the hovered row
+                fill(255, 255, 0);
+                textSize(20);
+                textAlign(CENTER, BOTTOM);
+                for (int c = 0; c < 4; c++) {
+                    float colX = margin + c * (buttonSize + padding) + buttonSize / 2f;
+                    float colY = rowTop - 5; // slightly above the button
+                    text(c==3?0:c + 7, colX, colY);
+                }
+            }
+        }
+
+        // Draw all buttons, passing hoveredRow
+        for (int i = 0; i < 16; i++) {
+            drawButton(i, hoveredRow);
+        }
+
+        // draw cursor
+        fill(255, 0, 0, 200);
+        ellipse(mouseX, mouseY, 20, 20);
     }
+
 
     public void mousePressed() // test to see if hit was in target!
     {
@@ -138,17 +164,26 @@ public class Main extends PApplet
     }
 
     //you can edit this method to change how buttons appear
-    public void drawButton(int i)
-    {
+    public void drawButton(int i, int hoveredRow) {
         Rectangle bounds = getButtonLocation(i);
 
-        if (trials.get(trialNum) == i) // see if current button is the target
-            fill(0, 255, 255); // if so, fill cyan
-        else
-            fill(200); // if not, fill gray
+        int row = i / 4; // which row this button is in
+        float grow = 0;
 
-        rect(bounds.x, bounds.y, bounds.width, bounds.height);
+        // Grow the button if its row is hovered
+        if (row == hoveredRow) {
+            grow = 15; // grow amount
+        }
+
+        if (trials.get(trialNum) == i)
+            fill(0, 255, 255); // target button
+        else
+            fill(200); // normal button
+
+        rectMode(CORNER);
+        rect(bounds.x - grow/2f, bounds.y - grow/2f, bounds.width + grow, bounds.height + grow);
     }
+
 
     public void mouseMoved()
     {
@@ -167,5 +202,36 @@ public class Main extends PApplet
         //can use the keyboard if you wish
         //https://processing.org/reference/keyTyped_.html
         //https://processing.org/reference/keyCode.html
+        if (hoveredRow != -1) { // only if a row is hovered
+            int col = -1;
+
+            if (key == '7') col = 0;
+            else if (key == '8') col = 1;
+            else if (key == '9') col = 2;
+            else if (key == '0') col = 3;
+
+            if (col != -1) {
+                int buttonIndex = hoveredRow * 4 + col; // convert row + column to button index
+                mousePressedLogic(buttonIndex); // call a helper method to process the selection
+            }
+        }
     }
+
+    public void mousePressedLogic(int buttonIndex) {
+        if (trialNum >= trials.size()) return;
+
+        if (trialNum == 0) startTime = millis();
+        if (trialNum == trials.size() - 1) finishTime = millis();
+
+        if (buttonIndex == trials.get(trialNum)) { // correct button
+            hits++;
+            println("HIT! Trial " + (trialNum+1) + " | Hits: " + hits + " | Misses: " + misses);
+        } else {
+            misses++;
+            println("MISSED! Trial " + (trialNum+1) + " | Hits: " + hits + " | Misses: " + misses);
+        }
+
+        trialNum++;
+    }
+
 }
