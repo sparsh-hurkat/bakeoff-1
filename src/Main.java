@@ -92,7 +92,7 @@ public class Main extends PApplet
         int gridX1 = margin + 4 * (padding + buttonSize) - padding;
         int gridY1 = margin + 4 * (padding + buttonSize) - padding;
 
-// check if mouse is outside the grid and "bounce" it back
+        // check if mouse is outside the grid and "bounce" it back
         if(mouseX < gridX0) {
             robot.mouseMove(((java.awt.Canvas)surface.getNative()).getLocationOnScreen().x + gridX0,
                     ((java.awt.Canvas)surface.getNative()).getLocationOnScreen().y + mouseY);
@@ -218,22 +218,22 @@ public class Main extends PApplet
         rect(cx, cy, bounds.width + grow, bounds.height + grow);
 
         // draw bullseye if hovered
-        if(d < hoverRadius){
-            int rings = 4; // number of concentric rings
-            float ringStep = (bounds.width + grow) / rings; // spacing between rings
-            for(int r = rings; r > 0; r--){
-                if(r % 2 == 0)
-                    fill(255,0,0,200); // red
-                else
-                    fill(255,255,255,200); // white
-                ellipse(cx, cy, ringStep * r, ringStep * r);
-            }
-            noFill();
-            stroke(255,0,0,150);
-            strokeWeight(2);
-            ellipse(cx, cy, bounds.width, bounds.height); // outer ring
-            noStroke();
-        }
+//        if(d < hoverRadius){
+//            int rings = 4; // number of concentric rings
+//            float ringStep = (bounds.width + grow) / rings; // spacing between rings
+//            for(int r = rings; r > 0; r--){
+//                if(r % 2 == 0)
+//                    fill(255,0,0,200); // red
+//                else
+//                    fill(255,255,255,200); // white
+//                ellipse(cx, cy, ringStep * r, ringStep * r);
+//            }
+//            noFill();
+//            stroke(255,0,0,150);
+//            strokeWeight(2);
+//            ellipse(cx, cy, bounds.width, bounds.height); // outer ring
+//            noStroke();
+//        }
 
         rectMode(CORNER);
     }
