@@ -20,7 +20,7 @@ public class Main extends PApplet
     int hits = 0; //number of successful clicks
     int misses = 0; //number of missed clicks
     Robot robot; //initialized in setup
-    int hoveredRow = -1; // -1 = no row hovered
+    int hoveredRow = 1;
 
     int numRepeats = 1; //sets the number of times each button repeats in the test
 
@@ -87,32 +87,22 @@ public class Main extends PApplet
         textAlign(LEFT, CENTER);
         text((trialNum + 1) + " of " + trials.size(), 40, 20);
 
-        // determine hovered row
-        float hoverZone = buttonSize * 1.5f; // vertical range for hover
-        for (int r = 0; r < 4; r++) {
-            float rowTop = margin + r * (buttonSize + padding);
-            float rowBottom = rowTop + buttonSize;
-            float rowCenterY = (rowTop + rowBottom) / 2f;
-
-            if (mouseY >= rowCenterY - hoverZone/2 && mouseY <= rowCenterY + hoverZone/2) {
-                hoveredRow = r; // save hovered row
-
-                // draw numbers above each button in the hovered row
-                fill(255, 255, 0);
-                textSize(20);
-                textAlign(CENTER, BOTTOM);
-                for (int c = 0; c < 4; c++) {
-                    float colX = margin + c * (buttonSize + padding) + buttonSize / 2f;
-                    float colY = rowTop - 5; // slightly above the button
-                    text(c==3?0:c + 7, colX, colY);
-                }
-            }
-        }
-
         // Draw all buttons, passing hoveredRow
         for (int i = 0; i < 16; i++) {
             drawButton(i, hoveredRow);
         }
+
+        // draw numbers above each button in the hovered row
+        fill(255, 255, 0);
+        textSize(20);
+        textAlign(CENTER, BOTTOM);
+        for (int c = 0; c < 4; c++) {
+            float colX = margin + c * (buttonSize + padding) + buttonSize / 2f;
+            float rowTop = margin + hoveredRow * (buttonSize + padding);
+            float colY = rowTop - 5; // slightly above the button
+            text(c==3?0:c + 7, colX, colY);
+        }
+
 
         // draw cursor
         fill(255, 0, 0, 200);
@@ -197,25 +187,27 @@ public class Main extends PApplet
         //https://processing.org/reference/mouseDragged_.html
     }
 
-    public void keyPressed()
-    {
-        //can use the keyboard if you wish
-        //https://processing.org/reference/keyTyped_.html
-        //https://processing.org/reference/keyCode.html
-        if (hoveredRow != -1) { // only if a row is hovered
-            int col = -1;
+    public void keyPressed() {
+        // move up/down
+        if (key == 'w' || key == 'W') {
+            hoveredRow = max(0, hoveredRow - 1); // go up, clamp to 0
+        } else if (key == 's' || key == 'S') {
+            hoveredRow = min(3, hoveredRow + 1); // go down, clamp to 3
+        }
 
-            if (key == '7') col = 0;
-            else if (key == '8') col = 1;
-            else if (key == '9') col = 2;
-            else if (key == '0') col = 3;
+        // select a button in the current row
+        int col = -1;
+        if (key == '7') col = 0;
+        else if (key == '8') col = 1;
+        else if (key == '9') col = 2;
+        else if (key == '0') col = 3;
 
-            if (col != -1) {
-                int buttonIndex = hoveredRow * 4 + col; // convert row + column to button index
-                mousePressedLogic(buttonIndex); // call a helper method to process the selection
-            }
+        if (col != -1) {
+            int buttonIndex = hoveredRow * 4 + col; // row + column → button index
+            mousePressedLogic(buttonIndex); // handle hit/miss
         }
     }
+
 
     public void mousePressedLogic(int buttonIndex) {
         if (trialNum >= trials.size()) return;
