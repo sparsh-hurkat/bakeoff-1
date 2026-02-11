@@ -86,6 +86,31 @@ public class Main extends PApplet
         fill(255); //set fill color to white
         text((trialNum + 1) + " of " + trials.size(), 40, 20); //display what trial the user is on
 
+        // inside draw() before drawing buttons
+        int gridX0 = margin;
+        int gridY0 = margin;
+        int gridX1 = margin + 4 * (padding + buttonSize) - padding;
+        int gridY1 = margin + 4 * (padding + buttonSize) - padding;
+
+// check if mouse is outside the grid and "bounce" it back
+        if(mouseX < gridX0) {
+            robot.mouseMove(((java.awt.Canvas)surface.getNative()).getLocationOnScreen().x + gridX0,
+                    ((java.awt.Canvas)surface.getNative()).getLocationOnScreen().y + mouseY);
+        }
+        if(mouseX > gridX1) {
+            robot.mouseMove(((java.awt.Canvas)surface.getNative()).getLocationOnScreen().x + gridX1,
+                    ((java.awt.Canvas)surface.getNative()).getLocationOnScreen().y + mouseY);
+        }
+        if(mouseY < gridY0) {
+            robot.mouseMove(((java.awt.Canvas)surface.getNative()).getLocationOnScreen().x + mouseX,
+                    ((java.awt.Canvas)surface.getNative()).getLocationOnScreen().y + gridY0);
+        }
+        if(mouseY > gridY1) {
+            robot.mouseMove(((java.awt.Canvas)surface.getNative()).getLocationOnScreen().x + mouseX,
+                    ((java.awt.Canvas)surface.getNative()).getLocationOnScreen().y + gridY1);
+        }
+
+
         for (int i = 0; i < 16; i++)// for all button
             drawButton(i); //draw button
 
@@ -94,7 +119,7 @@ public class Main extends PApplet
 
     }
 
-    public void mousePressed() // test to see if hit was in target!
+    public void keyPressedLogic() // test to see if hit was in target!
     {
         if (trialNum >= trials.size()) //check if task is done
             return;
@@ -111,21 +136,45 @@ public class Main extends PApplet
 
         Rectangle bounds = getButtonLocation(trials.get(trialNum));
 
-        //check to see if cursor was inside button
-        if ((mouseX > bounds.x && mouseX < bounds.x + bounds.width) && (mouseY > bounds.y && mouseY < bounds.y + bounds.height)) // test to see if hit was within bounds
-        {
-            System.out.println("HIT! " + trialNum + " " + (millis() - startTime)); // success
-            hits++;
-        } else
-        {
-            System.out.println("MISSED! " + trialNum + " " + (millis() - startTime)); // fail
-            misses++;
+// Compute hover distance and growth
+        float cx = bounds.x + bounds.width/2f;
+        float cy = bounds.y + bounds.height/2f;
+
+        float d = dist(mouseX, mouseY, cx, cy);
+        float hoverRadius = buttonSize * 2.0f;
+        float grow = 0;
+        if(d < hoverRadius){
+            grow = map(d, hoverRadius, 0, 0, buttonSize); // same as in drawButton
         }
+
+// Expanded button bounds
+        float expandedLeft   = cx - (bounds.width + grow)/2f;
+        float expandedRight  = cx + (bounds.width + grow)/2f;
+        float expandedTop    = cy - (bounds.height + grow)/2f;
+        float expandedBottom = cy + (bounds.height + grow)/2f;
+
+// Check if mouse is inside expanded button
+        if(mouseX > expandedLeft && mouseX < expandedRight &&
+                mouseY > expandedTop && mouseY < expandedBottom) {
+            hits++;
+            println("HIT! Trial " + (trialNum+1) + "/" + trials.size() + " | Hits: " + hits + " | Misses: " + misses);
+        } else {
+            misses++;
+            println("MISSED! Trial " + (trialNum+1) + "/" + trials.size() + " | Hits: " + hits + " | Misses: " + misses);
+        }
+
 
         trialNum++; // Increment trial number
 
         //in this example design, I move the cursor back to the middle after each click
         //robot.mouseMove(width/2, (height)/2); //on click, move cursor to roughly center of window!
+//        java.awt.Point windowPos =
+//                ((java.awt.Canvas) surface.getNative()).getLocationOnScreen();
+//
+//        int screenX = windowPos.x + width/2;
+//        int screenY = windowPos.y + height/2;
+//
+//        robot.mouseMove(screenX, screenY);
     }
 
     //probably shouldn't have to edit this method
@@ -142,13 +191,53 @@ public class Main extends PApplet
     {
         Rectangle bounds = getButtonLocation(i);
 
-        if (trials.get(trialNum) == i) // see if current button is the target
-            fill(0, 255, 255); // if so, fill cyan
-        else
-            fill(200); // if not, fill gray
+        // center of button
+        float cx = bounds.x + bounds.width/2f;
+        float cy = bounds.y + bounds.height/2f;
 
-        rect(bounds.x, bounds.y, bounds.width, bounds.height);
+        // distance from cursor
+        float d = dist(mouseX, mouseY, cx, cy);
+
+        // hover radius = 2x button size
+        float hoverRadius = buttonSize * 2.0f;
+
+        // growth amount
+        float grow = 0;
+        if(d < hoverRadius){
+            grow = map(d, hoverRadius, 0, 0, buttonSize); // closer = bigger
+        }
+
+        rectMode(CENTER);
+
+        // color logic for active button
+        if (trials.get(trialNum) == i)
+            fill(0,255,255);   // active target
+        else
+            fill(200);         // normal gray
+
+        rect(cx, cy, bounds.width + grow, bounds.height + grow);
+
+        // draw bullseye if hovered
+        if(d < hoverRadius){
+            int rings = 4; // number of concentric rings
+            float ringStep = (bounds.width + grow) / rings; // spacing between rings
+            for(int r = rings; r > 0; r--){
+                if(r % 2 == 0)
+                    fill(255,0,0,200); // red
+                else
+                    fill(255,255,255,200); // white
+                ellipse(cx, cy, ringStep * r, ringStep * r);
+            }
+            noFill();
+            stroke(255,0,0,150);
+            strokeWeight(2);
+            ellipse(cx, cy, bounds.width, bounds.height); // outer ring
+            noStroke();
+        }
+
+        rectMode(CORNER);
     }
+
 
     public void mouseMoved()
     {
@@ -164,8 +253,9 @@ public class Main extends PApplet
 
     public void keyPressed()
     {
-        //can use the keyboard if you wish
-        //https://processing.org/reference/keyTyped_.html
-        //https://processing.org/reference/keyCode.html
+        if (keyCode == ' ' || keyCode == RETURN)
+        {
+            keyPressedLogic();
+        }
     }
 }
