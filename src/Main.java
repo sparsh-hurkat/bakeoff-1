@@ -7,31 +7,25 @@ import processing.core.PApplet;
 
 public class Main extends PApplet
 {
-    int margin = 200;
-    final int padding = 50;
-    final int buttonSize = 40;
+    int margin = 200; //set the margin around the squares
+    final int padding = 50; // padding between buttons and also their width/height
+    final int buttonSize = 40; // padding between buttons and also their width/height
+    ArrayList<Integer> trials = new ArrayList<Integer>(); //contains the order of buttons that activate in the test
+    int trialNum = 0; //the current trial number (indexes into trials array above)
+    int startTime = 0; // time starts when the first click is captured
+    int finishTime = 0; //records the time of the final click
+    int hits = 0; //number of successful clicks
+    int misses = 0; //number of missed clicks
+    Robot robot; //initialized in setup
 
-    ArrayList<Integer> trials = new ArrayList<Integer>();
-    int trialNum = 0;
-    int startTime = 0;
-    int finishTime = 0;
-    int hits = 0;
-    int misses = 0;
-    Robot robot;
+    int numRepeats = 1; //sets the number of times each button repeats in the test
 
-    int numRepeats = 1;
+    // === NEW: cache native drawing component so we can convert to screen coords ===
+    java.awt.Component nativeCanvas;
 
-    // === Enlarged cursor hitbox ===
-    final int cursorRadius = 35;   // visual + hit radius (pixels)
-    final int overlapStep = 2;     // sampling step (smaller = more accurate, slower)
-
-    // === NEW: virtual cursor we clamp inside the allowed area ===
-    float vMouseX, vMouseY;
-    int prevRawMouseX, prevRawMouseY;
-
-    // === NEW: clamp area (border around grid) ===
-    final int clampPad = 25; // how much extra space around the 4x4 grid we allow
-    Rectangle clampRect;
+    // === NEW: center of grid in sketch coordinates ===
+    int gridW, gridH;
+    int gridCenterX, gridCenterY;
 
     public static void main(String[] args) {
         PApplet.main("Main");
@@ -39,12 +33,12 @@ public class Main extends PApplet
 
     @Override
     public void settings() {
-        size(700,700);
+        size(700,700); // set the size of the window
     }
 
     public void setup()
     {
-        noCursor();          // hide system cursor so our clamped virtual cursor is what you “feel”
+        //noCursor(); // keep default behavior: system cursor visible
         noStroke();
         textFont(createFont("Arial",16));
         textAlign(CENTER);
@@ -57,45 +51,34 @@ public class Main extends PApplet
             e.printStackTrace();
         }
 
+        // Cache native canvas (Processing AWT uses a Canvas/Component)
+        try {
+            nativeCanvas = (java.awt.Component) surface.getNative();
+        } catch (Exception e) {
+            nativeCanvas = null;
+            System.out.println("Warning: could not access native canvas: " + e);
+        }
+
+        // Compute grid center (sketch coords)
+        gridW = 3 * (padding + buttonSize) + buttonSize;
+        gridH = 3 * (padding + buttonSize) + buttonSize;
+        gridCenterX = margin + gridW / 2;
+        gridCenterY = margin + gridH / 2;
+
         //===DON'T MODIFY MY RANDOM ORDERING CODE==
-        for (int i = 0; i < 16; i++)
+        for (int i = 0; i < 16; i++) //generate list of targets and randomize the order
             for (int k = 0; k < numRepeats; k++)
                 trials.add(i);
 
-        Collections.shuffle(trials);
-        System.out.println("trial order: " + trials);
+        Collections.shuffle(trials); // randomize the order of the buttons
+        System.out.println("trial order: " + trials); //print out order for reference
 
-        surface.setLocation(0,0);
-
-        // Compute clamp rectangle around the 4x4 grid
-        int gridW = 3 * (padding + buttonSize) + buttonSize;
-        int gridH = 3 * (padding + buttonSize) + buttonSize;
-        clampRect = new Rectangle(margin - clampPad, margin - clampPad,
-                gridW + 2 * clampPad, gridH + 2 * clampPad);
-
-        // Start virtual cursor at center of grid
-        vMouseX = margin + gridW / 2f;
-        vMouseY = margin + gridH / 2f;
-
-        prevRawMouseX = mouseX;
-        prevRawMouseY = mouseY;
+        surface.setLocation(0,0);// put window in top left corner of screen (doesn't always work)
     }
 
     public void draw()
     {
         background(0);
-
-        // Update virtual cursor using real mouse deltas, then clamp inside clampRect
-        int dx = mouseX - prevRawMouseX;
-        int dy = mouseY - prevRawMouseY;
-        prevRawMouseX = mouseX;
-        prevRawMouseY = mouseY;
-
-        vMouseX += dx;
-        vMouseY += dy;
-
-        vMouseX = constrain(vMouseX, clampRect.x, clampRect.x + clampRect.width);
-        vMouseY = constrain(vMouseY, clampRect.y, clampRect.y + clampRect.height);
 
         if (trialNum >= trials.size())
         {
@@ -113,35 +96,17 @@ public class Main extends PApplet
         }
 
         fill(255);
-        text((trialNum + 1) + " of " + trials.size(), 60, 20);
-        text("Click mouse or press 'A' to click. Cursor is clamped near grid.", width / 2, 20);
+        text((trialNum + 1) + " of " + trials.size(), 40, 20);
 
-        // Draw buttons
         for (int i = 0; i < 16; i++)
             drawButton(i);
 
-        // Draw the clamp border so it’s visible
-        drawClampBorder();
-
-        // Draw enlarged cursor at virtual cursor position
-        drawBigCursor((int)vMouseX, (int)vMouseY);
+        // default cursor indicator (scaffold)
+        fill(255, 0, 0, 200);
+        ellipse(mouseX, mouseY, 20, 20);
     }
 
     public void mousePressed()
-    {
-        performClick();
-    }
-
-    public void keyPressed()
-    {
-        // Allow using the "A" key to click
-        if (key == 'a' || key == 'A') {
-            performClick();
-        }
-    }
-
-    // Shared click logic for mouse and 'A' key
-    private void performClick()
     {
         if (trialNum >= trials.size())
             return;
@@ -155,29 +120,37 @@ public class Main extends PApplet
             System.out.println("we're all done!");
         }
 
-        // Choose button covered MOST by the cursor hitbox (using virtual cursor)
-        int chosen = getMostCoveredButton((int)vMouseX, (int)vMouseY);
+        Rectangle bounds = getButtonLocation(trials.get(trialNum));
 
-        if (chosen == -1) {
-            System.out.println("MISSED! (no overlap) " + trialNum + " " + (millis() - startTime));
-            misses++;
-            trialNum++;
-            return;
-        }
-
-        int target = trials.get(trialNum);
-
-        if (chosen == target)
+        if ((mouseX > bounds.x && mouseX < bounds.x + bounds.width) &&
+                (mouseY > bounds.y && mouseY < bounds.y + bounds.height))
         {
-            System.out.println("HIT! (chosen=" + chosen + ") " + trialNum + " " + (millis() - startTime));
+            System.out.println("HIT! " + trialNum + " " + (millis() - startTime));
             hits++;
         } else
         {
-            System.out.println("MISSED! (chosen=" + chosen + ", target=" + target + ") " + trialNum + " " + (millis() - startTime));
+            System.out.println("MISSED! " + trialNum + " " + (millis() - startTime));
             misses++;
         }
 
         trialNum++;
+
+        // === NEW: reset OS cursor to center of grid after each click ===
+        resetMouseToGridCenter();
+    }
+
+    // Move OS cursor to the grid center (Robot uses SCREEN coords)
+    private void resetMouseToGridCenter() {
+        if (robot == null || nativeCanvas == null) return;
+
+        try {
+            java.awt.Point p = nativeCanvas.getLocationOnScreen(); // screen coords of sketch (0,0)
+            int screenX = p.x + gridCenterX;
+            int screenY = p.y + gridCenterY;
+            robot.mouseMove(screenX, screenY);
+        } catch (Exception e) {
+            System.out.println("Cursor reset failed: " + e);
+        }
     }
 
     public Rectangle getButtonLocation(int i)
@@ -191,106 +164,15 @@ public class Main extends PApplet
     {
         Rectangle bounds = getButtonLocation(i);
 
-        // === Yellow Target Square (instead of blue) ===
         if (trials.get(trialNum) == i)
-            fill(255, 255, 0); // yellow
+            fill(0, 255, 255);
         else
             fill(200);
 
         rect(bounds.x, bounds.y, bounds.width, bounds.height);
     }
 
-    private void drawClampBorder() {
-        noFill();
-        stroke(255);
-        strokeWeight(2);
-        rect(clampRect.x, clampRect.y, clampRect.width, clampRect.height);
-        noStroke();
-        strokeWeight(1);
-    }
-
-    private void drawBigCursor(int cx, int cy) {
-        // translucent fill showing hit area
-        noStroke();
-        fill(255, 0, 0, 60);
-        ellipse(cx, cy, cursorRadius * 2, cursorRadius * 2);
-
-        // ring outline
-        noFill();
-        stroke(255, 0, 0, 220);
-        strokeWeight(3);
-        ellipse(cx, cy, cursorRadius * 2, cursorRadius * 2);
-
-        // center dot
-        noStroke();
-        fill(255, 0, 0, 230);
-        ellipse(cx, cy, 8, 8);
-
-        noStroke();
-        strokeWeight(1);
-    }
-
-    // Returns button index 0..15, or -1 if overlap is zero for all.
-    private int getMostCoveredButton(int cx, int cy) {
-        int bestIdx = -1;
-        int bestScore = 0;
-
-        int r = cursorRadius;
-        int r2 = r * r;
-
-        int minX = cx - r;
-        int maxX = cx + r;
-        int minY = cy - r;
-        int maxY = cy + r;
-
-        for (int i = 0; i < 16; i++) {
-            Rectangle b = getButtonLocation(i);
-
-            // quick reject
-            if (maxX < b.x || minX > b.x + b.width || maxY < b.y || minY > b.y + b.height)
-                continue;
-
-            int score = 0;
-
-            // sample only overlapping bbox region
-            int sx0 = max(minX, b.x);
-            int sx1 = min(maxX, b.x + b.width);
-            int sy0 = max(minY, b.y);
-            int sy1 = min(maxY, b.y + b.height);
-
-            for (int x = sx0; x <= sx1; x += overlapStep) {
-                int dx = x - cx;
-                int dx2 = dx * dx;
-                for (int y = sy0; y <= sy1; y += overlapStep) {
-                    int dy = y - cy;
-                    if (dx2 + dy * dy <= r2) {
-                        score++;
-                    }
-                }
-            }
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestIdx = i;
-            } else if (score == bestScore && score > 0) {
-                // Optional tie-breaker: choose the one whose center is closer to cursor center
-                // (makes edge cases feel more stable)
-                Rectangle best = getButtonLocation(bestIdx);
-                float bestCx = best.x + best.width / 2f;
-                float bestCy = best.y + best.height / 2f;
-                float curBestD = sq(bestCx - cx) + sq(bestCy - cy);
-
-                float thisCx = b.x + b.width / 2f;
-                float thisCy = b.y + b.height / 2f;
-                float thisD = sq(thisCx - cx) + sq(thisCy - cy);
-
-                if (thisD < curBestD) bestIdx = i;
-            }
-        }
-
-        return (bestScore == 0) ? -1 : bestIdx;
-    }
-
     public void mouseMoved() { }
     public void mouseDragged() { }
+    public void keyPressed() { }
 }
