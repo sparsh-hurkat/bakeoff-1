@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import processing.core.PApplet;
 
-
 public class Main extends PApplet
 {
     //when in doubt, consult the Processsing reference: https://processing.org/reference/
@@ -23,6 +22,9 @@ public class Main extends PApplet
 
     int numRepeats = 1; //sets the number of times each button repeats in the test
 
+    // === NEW: larger cursor hitbox ===
+    final int cursorRadius = 35;      // visual + hit radius (pixels)
+    final int overlapStep = 2;        // sampling step (1 = more accurate, 2 = faster; 2 is plenty here)
 
     public static void main(String[] args) {
         PApplet.main("Main");
@@ -51,9 +53,7 @@ public class Main extends PApplet
 
         //===DON'T MODIFY MY RANDOM ORDERING CODE==
         for (int i = 0; i < 16; i++) //generate list of targets and randomize the order
-            // number of buttons in 4x4 grid
             for (int k = 0; k < numRepeats; k++)
-                // number of times each button repeats
                 trials.add(i);
 
         Collections.shuffle(trials); // randomize the order of the buttons
@@ -61,7 +61,6 @@ public class Main extends PApplet
 
         surface.setLocation(0,0);// put window in top left corner of screen (doesn't always work)
     }
-
 
     public void draw()
     {
@@ -72,7 +71,6 @@ public class Main extends PApplet
             float timeTaken = (finishTime-startTime) / 1000f;
             float penalty = constrain(((95f-((float)hits*100f/(float)(hits+misses)))*.2f),0,100);
             fill(255); //set fill color to white
-            //write to screen (not console)
             text("Finished!", width / 2, height / 2);
             text("Hits: " + hits, width / 2, height / 2 + 20);
             text("Misses: " + misses, width / 2, height / 2 + 40);
@@ -80,52 +78,58 @@ public class Main extends PApplet
             text("Total time taken: " + timeTaken + " sec", width / 2, height / 2 + 80);
             text("Average time for each button: " + nf((timeTaken)/(float)(hits+misses),0,3) + " sec", width / 2, height / 2 + 100);
             text("Average time for each button + penalty: " + nf(((timeTaken)/(float)(hits+misses) + penalty),0,3) + " sec", width / 2, height / 2 + 140);
-            return; //return, nothing else to do now test is over
+            return;
         }
 
-        fill(255); //set fill color to white
-        text((trialNum + 1) + " of " + trials.size(), 40, 20); //display what trial the user is on
+        fill(255);
+        text((trialNum + 1) + " of " + trials.size(), 40, 20);
 
-        for (int i = 0; i < 16; i++)// for all button
-            drawButton(i); //draw button
+        for (int i = 0; i < 16; i++)
+            drawButton(i);
 
-        fill(255, 0, 0, 200); // set fill color to translucent red
-        ellipse(mouseX, mouseY, 20, 20); //draw user cursor as a circle with a diameter of 20
-
+        // === NEW: bigger cursor + visible hitbox ===
+        drawBigCursor(mouseX, mouseY);
     }
 
     public void mousePressed() // test to see if hit was in target!
     {
-        if (trialNum >= trials.size()) //check if task is done
+        if (trialNum >= trials.size())
             return;
 
-        if (trialNum == 0) //check if first click, if so, record start time
+        if (trialNum == 0)
             startTime = millis();
 
-        if (trialNum == trials.size() - 1) //check if final click
+        if (trialNum == trials.size() - 1)
         {
             finishTime = millis();
-            //write to terminal some output:
             System.out.println("we're all done!");
         }
 
-        Rectangle bounds = getButtonLocation(trials.get(trialNum));
+        // === NEW: choose the button covered MOST by the cursor hitbox ===
+        int chosen = getMostCoveredButton(mouseX, mouseY);
 
-        //check to see if cursor was inside button
-        if ((mouseX > bounds.x && mouseX < bounds.x + bounds.width) && (mouseY > bounds.y && mouseY < bounds.y + bounds.height)) // test to see if hit was within bounds
+        // If cursor doesn't overlap any button at all, count as a miss
+        if (chosen == -1) {
+            System.out.println("MISSED! (no overlap) " + trialNum + " " + (millis() - startTime));
+            misses++;
+            trialNum++;
+            return;
+        }
+
+        int target = trials.get(trialNum);
+
+        if (chosen == target)
         {
-            System.out.println("HIT! " + trialNum + " " + (millis() - startTime)); // success
+            System.out.println("HIT! (chosen=" + chosen + ") " + trialNum + " " + (millis() - startTime));
             hits++;
         } else
         {
-            System.out.println("MISSED! " + trialNum + " " + (millis() - startTime)); // fail
+            System.out.println("MISSED! (chosen=" + chosen + ", target=" + target + ") " + trialNum + " " + (millis() - startTime));
             misses++;
         }
 
-        trialNum++; // Increment trial number
-
-        //in this example design, I move the cursor back to the middle after each click
-        //robot.mouseMove(width/2, (height)/2); //on click, move cursor to roughly center of window!
+        trialNum++;
+        //robot.mouseMove(width/2, (height)/2); // optional
     }
 
     //probably shouldn't have to edit this method
@@ -142,30 +146,91 @@ public class Main extends PApplet
     {
         Rectangle bounds = getButtonLocation(i);
 
-        if (trials.get(trialNum) == i) // see if current button is the target
-            fill(0, 255, 255); // if so, fill cyan
+        if (trials.get(trialNum) == i)
+            fill(0, 255, 255);
         else
-            fill(200); // if not, fill gray
+            fill(200);
 
         rect(bounds.x, bounds.y, bounds.width, bounds.height);
     }
 
-    public void mouseMoved()
-    {
-        //can do stuff everytime the mouse is moved (i.e., not clicked)
-        //https://processing.org/reference/mouseMoved_.html
+    // === NEW: draw a large cursor hitbox (circle + outline)
+    private void drawBigCursor(int cx, int cy) {
+        // translucent fill to show the hit area
+        noStroke();
+        fill(255, 0, 0, 60);
+        ellipse(cx, cy, cursorRadius * 2, cursorRadius * 2);
+
+        // ring outline
+        noFill();
+        stroke(255, 0, 0, 200);
+        strokeWeight(3);
+        ellipse(cx, cy, cursorRadius * 2, cursorRadius * 2);
+
+        // small center dot
+        noStroke();
+        fill(255, 0, 0, 220);
+        ellipse(cx, cy, 8, 8);
+
+        // restore for other drawing
+        noStroke();
+        strokeWeight(1);
     }
 
-    public void mouseDragged()
-    {
-        //can do stuff everytime the mouse is dragged
-        //https://processing.org/reference/mouseDragged_.html
+    // === NEW: find which button has the largest overlap with the cursor circle
+    // Returns button index 0..15, or -1 if overlap is zero for all.
+    private int getMostCoveredButton(int cx, int cy) {
+        int bestIdx = -1;
+        int bestScore = 0;
+
+        // sample points in cursor bounding box
+        int r = cursorRadius;
+        int r2 = r * r;
+
+        int minX = cx - r;
+        int maxX = cx + r;
+        int minY = cy - r;
+        int maxY = cy + r;
+
+        for (int i = 0; i < 16; i++) {
+            Rectangle b = getButtonLocation(i);
+
+            // quick reject: circle bbox doesn't intersect rect => can't overlap
+            if (maxX < b.x || minX > b.x + b.width || maxY < b.y || minY > b.y + b.height)
+                continue;
+
+            int score = 0;
+
+            // sample only the overlapping region between circle bbox and rect bbox
+            int sx0 = max(minX, b.x);
+            int sx1 = min(maxX, b.x + b.width);
+            int sy0 = max(minY, b.y);
+            int sy1 = min(maxY, b.y + b.height);
+
+            for (int x = sx0; x <= sx1; x += overlapStep) {
+                int dx = x - cx;
+                int dx2 = dx * dx;
+                for (int y = sy0; y <= sy1; y += overlapStep) {
+                    int dy = y - cy;
+                    if (dx2 + dy * dy <= r2) {
+                        score++;
+                    }
+                }
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestIdx = i;
+            }
+        }
+
+        // if nothing overlapped at all
+        if (bestScore == 0) return -1;
+
+        return bestIdx;
     }
 
-    public void keyPressed()
-    {
-        //can use the keyboard if you wish
-        //https://processing.org/reference/keyTyped_.html
-        //https://processing.org/reference/keyCode.html
-    }
+    public void mouseMoved() { }
+    public void mouseDragged() { }
+    public void keyPressed() { }
 }
