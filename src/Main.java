@@ -7,9 +7,9 @@ import processing.core.PApplet;
 
 public class Main extends PApplet
 {
-    int margin = 200;              // margin around the squares
-    final int padding = 50;        // space between buttons
-    final int buttonSize = 40;     // button width/height
+    int margin = 200;
+    final int padding = 50;
+    final int buttonSize = 40;
 
     ArrayList<Integer> trials = new ArrayList<Integer>();
     int trialNum = 0;
@@ -18,10 +18,10 @@ public class Main extends PApplet
     int hits = 0;
     int misses = 0;
 
-    Robot robot; // initialized in setup
+    Robot robot;
     int numRepeats = 1;
 
-    // --- NEW: keyboard selection state (0..15)
+    // Arrow-key selection index (0–15)
     int selectedIndex = 0;
 
     public static void main(String[] args) {
@@ -47,7 +47,7 @@ public class Main extends PApplet
             e.printStackTrace();
         }
 
-        //===DON'T MODIFY MY RANDOM ORDERING CODE==
+        //===DON'T MODIFY RANDOM ORDERING CODE===
         for (int i = 0; i < 16; i++)
             for (int k = 0; k < numRepeats; k++)
                 trials.add(i);
@@ -73,23 +73,20 @@ public class Main extends PApplet
             text("Misses: " + misses, width / 2, height / 2 + 40);
             text("Accuracy: " + (float)hits * 100f / (float)(hits + misses) + "%", width / 2, height / 2 + 60);
             text("Total time taken: " + timeTaken + " sec", width / 2, height / 2 + 80);
-            text("Average time for each button: " + nf((timeTaken)/(float)(hits + misses), 0, 3) + " sec", width / 2, height / 2 + 100);
-            text("Average time for each button + penalty: " + nf(((timeTaken)/(float)(hits + misses) + penalty), 0, 3) + " sec", width / 2, height / 2 + 140);
+            text("Average time per button: " + nf((timeTaken)/(float)(hits + misses), 0, 3) + " sec", width / 2, height / 2 + 100);
+            text("Average + penalty: " + nf(((timeTaken)/(float)(hits + misses) + penalty), 0, 3) + " sec", width / 2, height / 2 + 140);
             return;
         }
 
         fill(255);
         text((trialNum + 1) + " of " + trials.size(), 60, 20);
-        text("Selected: " + selectedIndex + " (WASD to move, click anywhere to select)", width / 2, 20);
+        text("Use ARROW KEYS to move, click anywhere to select", width / 2, 20);
 
-        // Draw buttons
         for (int i = 0; i < 16; i++)
             drawButton(i);
 
-        // NEW: draw selection outline (on top)
         drawSelectionOutline(selectedIndex);
 
-        // Optional: keep the red cursor indicator if you like
         fill(255, 0, 0, 200);
         ellipse(mouseX, mouseY, 20, 20);
     }
@@ -107,15 +104,13 @@ public class Main extends PApplet
             System.out.println("we're all done!");
         }
 
-        // --- NEW: clicking anywhere "clicks" the selected square
         int target = trials.get(trialNum);
 
         if (selectedIndex == target) {
             System.out.println("HIT! " + trialNum + " " + (millis() - startTime));
             hits++;
         } else {
-            System.out.println("MISSED! " + trialNum + " " + (millis() - startTime)
-                    + " (target=" + target + ", selected=" + selectedIndex + ")");
+            System.out.println("MISSED! " + trialNum + " " + (millis() - startTime));
             misses++;
         }
 
@@ -134,42 +129,36 @@ public class Main extends PApplet
         Rectangle bounds = getButtonLocation(i);
 
         if (trials.get(trialNum) == i)
-            fill(0, 255, 255); // target
+            fill(0, 255, 255);
         else
-            fill(200); // non-target
+            fill(200);
 
         rect(bounds.x, bounds.y, bounds.width, bounds.height);
     }
 
-    // --- NEW: selection outline
     private void drawSelectionOutline(int i)
     {
         Rectangle b = getButtonLocation(i);
 
-        // draw an outline without affecting other shapes
         noFill();
-        stroke(255, 255, 0);   // yellow
+        stroke(255, 255, 0);
         strokeWeight(4);
         rect(b.x - 2, b.y - 2, b.width + 4, b.height + 4);
 
-        // restore for rest of drawing
         noStroke();
         strokeWeight(1);
     }
 
     public void keyPressed()
     {
-        // WASD movement in a 4x4 grid (clamped)
         int col = selectedIndex % 4;
         int row = selectedIndex / 4;
 
-        char k = Character.toLowerCase(key);
-        if (k == 'w') row--;
-        if (k == 's') row++;
-        if (k == 'a') col--;
-        if (k == 'd') col++;
+        if (keyCode == UP) row--;
+        if (keyCode == DOWN) row++;
+        if (keyCode == LEFT) col--;
+        if (keyCode == RIGHT) col++;
 
-        // clamp to [0..3]
         col = constrain(col, 0, 3);
         row = constrain(row, 0, 3);
 
