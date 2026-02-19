@@ -33,6 +33,11 @@ public class Main extends PApplet
     final int clampPad = 25;
     Rectangle clampRect;
 
+    // === Halo styling (does NOT change button hit size) ===
+    final int haloPad = 10;        // how far halo extends beyond the square visually
+    final int haloStroke = 6;      // thickness of the halo outline
+    final int haloAlpha = 180;     // transparency of halo
+
     public static void main(String[] args) {
         PApplet.main("Main");
     }
@@ -120,13 +125,35 @@ public class Main extends PApplet
 
         fill(255);
         text((trialNum + 1) + " of " + trials.size(), 60, 20);
-        text("Click mouse or press 'A'. Flashing target.", width / 2, 20);
+        text("Click mouse or press 'A'. Target has halo (visual only).", width / 2, 20);
 
+        // Draw halo first so it appears behind the target square
+        drawTargetHalo();
+
+        // Draw buttons
         for (int i = 0; i < 16; i++)
             drawButton(i);
 
         drawClampBorder();
         drawBigCursor((int)vMouseX, (int)vMouseY);
+    }
+
+    // Draw a halo around the current target square (visual only)
+    private void drawTargetHalo() {
+        if (trialNum >= trials.size()) return;
+
+        int targetIdx = trials.get(trialNum);
+        Rectangle b = getButtonLocation(targetIdx);
+
+        noFill();
+        stroke(255, 255, 0, haloAlpha); // yellow halo
+        strokeWeight(haloStroke);
+
+        // draw slightly larger rectangle around the button (does not change hitbox)
+        rect(b.x - haloPad, b.y - haloPad, b.width + 2 * haloPad, b.height + 2 * haloPad);
+
+        noStroke();
+        strokeWeight(1);
     }
 
     public void mousePressed() {
@@ -167,24 +194,15 @@ public class Main extends PApplet
         return new Rectangle(x, y, buttonSize, buttonSize);
     }
 
-    // === FLASHING YELLOW/RED TARGET ===
     public void drawButton(int i)
     {
         Rectangle bounds = getButtonLocation(i);
 
+        // keep target square yellow (no flashing)
         if (trialNum < trials.size() && trials.get(trialNum) == i)
-        {
-            boolean flashOn = (millis() / 500) % 2 == 0;
-
-            if (flashOn)
-                fill(255, 255, 0); // Yellow
-            else
-                fill(255, 0, 0);   // Red
-        }
+            fill(255, 255, 0);
         else
-        {
             fill(200);
-        }
 
         rect(bounds.x, bounds.y, bounds.width, bounds.height);
     }
@@ -195,6 +213,7 @@ public class Main extends PApplet
         strokeWeight(2);
         rect(clampRect.x, clampRect.y, clampRect.width, clampRect.height);
         noStroke();
+        strokeWeight(1);
     }
 
     private void drawBigCursor(int cx, int cy) {
