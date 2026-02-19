@@ -167,14 +167,14 @@ public class Main extends PApplet
         trialNum++; // Increment trial number
 
         //in this example design, I move the cursor back to the middle after each click
-        //robot.mouseMove(width/2, (height)/2); //on click, move cursor to roughly center of window!
-//        java.awt.Point windowPos =
-//                ((java.awt.Canvas) surface.getNative()).getLocationOnScreen();
+        robot.mouseMove(width/2, (height)/2); //on click, move cursor to roughly center of window!
+        java.awt.Point windowPos =
+                ((java.awt.Canvas) surface.getNative()).getLocationOnScreen();
+
+        int screenX = windowPos.x + width/2;
+        int screenY = windowPos.y + height/2;
 //
-//        int screenX = windowPos.x + width/2;
-//        int screenY = windowPos.y + height/2;
-//
-//        robot.mouseMove(screenX, screenY);
+        robot.mouseMove(screenX, screenY);
     }
 
     //probably shouldn't have to edit this method
