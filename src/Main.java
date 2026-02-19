@@ -5,24 +5,29 @@ import java.util.ArrayList;
 import java.util.Collections;
 import processing.core.PApplet;
 
-
 public class Main extends PApplet
 {
-    //when in doubt, consult the Processsing reference: https://processing.org/reference/
+    int margin = 200;
+    final int padding = 50;
+    final int buttonSize = 40;
 
-    int margin = 200; //set the margin around the squares
-    final int padding = 50; // padding between buttons and also their width/height
-    final int buttonSize = 40; // padding between buttons and also their width/height
-    ArrayList<Integer> trials = new ArrayList<Integer>(); //contains the order of buttons that activate in the test
-    int trialNum = 0; //the current trial number (indexes into trials array above)
-    int startTime = 0; // time starts when the first click is captured
-    int finishTime = 0; //records the time of the final click
-    int hits = 0; //number of successful clicks
-    int misses = 0; //number of missed clicks
-    Robot robot; //initialized in setup
+    ArrayList<Integer> trials = new ArrayList<Integer>();
+    int trialNum = 0;
+    int startTime = 0;
+    int finishTime = 0;
+    int hits = 0;
+    int misses = 0;
+    Robot robot;
 
-    int numRepeats = 1; //sets the number of times each button repeats in the test
+    int numRepeats = 1;
 
+    // === NEW: virtual/clamped cursor ===
+    float vMouseX, vMouseY;
+    int prevRawMouseX, prevRawMouseY;
+
+    // === NEW: clamp area around grid ===
+    final int clampPad = 25; // extra space around the grid
+    Rectangle clampRect;
 
     public static void main(String[] args) {
         PApplet.main("Main");
@@ -30,49 +35,69 @@ public class Main extends PApplet
 
     @Override
     public void settings() {
-        size(700,700); // set the size of the window
+        size(700,700);
     }
 
     public void setup()
     {
-        //noCursor(); // hides the system cursor if you want
-        noStroke(); //turn off all strokes, we're just using fills here (can change this if you want)
-        textFont(createFont("Arial",16)); //sets the font to Arial size 16
+        noCursor(); // hide system cursor; we draw and use the clamped virtual cursor
+        noStroke();
+        textFont(createFont("Arial",16));
         textAlign(CENTER);
-        frameRate(60); //normally you can't go much higher than 60 FPS.
-        ellipseMode(CENTER); //ellipses are drawn from the center (BUT RECTANGLES ARE NOT!)
-        //rectMode(CENTER); //enabling will break the scaffold code, but you might find it easier to work with centered rects
+        frameRate(60);
+        ellipseMode(CENTER);
 
         try {
-            robot = new Robot(); //create a "Java Robot" class that can move the system cursor
+            robot = new Robot();
         } catch (AWTException e) {
             e.printStackTrace();
         }
 
         //===DON'T MODIFY MY RANDOM ORDERING CODE==
-        for (int i = 0; i < 16; i++) //generate list of targets and randomize the order
-            // number of buttons in 4x4 grid
+        for (int i = 0; i < 16; i++)
             for (int k = 0; k < numRepeats; k++)
-                // number of times each button repeats
                 trials.add(i);
 
-        Collections.shuffle(trials); // randomize the order of the buttons
-        System.out.println("trial order: " + trials); //print out order for reference
+        Collections.shuffle(trials);
+        System.out.println("trial order: " + trials);
 
-        surface.setLocation(0,0);// put window in top left corner of screen (doesn't always work)
+        surface.setLocation(0,0);
+
+        // compute clamp rect around the 4x4 grid
+        int gridW = 3 * (padding + buttonSize) + buttonSize;
+        int gridH = 3 * (padding + buttonSize) + buttonSize;
+        clampRect = new Rectangle(margin - clampPad, margin - clampPad,
+                gridW + 2 * clampPad, gridH + 2 * clampPad);
+
+        // start virtual cursor at center of grid
+        vMouseX = margin + gridW / 2f;
+        vMouseY = margin + gridH / 2f;
+
+        prevRawMouseX = mouseX;
+        prevRawMouseY = mouseY;
     }
-
 
     public void draw()
     {
-        background(0); //set background to black
+        background(0);
 
-        if (trialNum >= trials.size()) //check to see if test is over
+        // update virtual cursor using raw mouse deltas, then clamp it
+        int dx = mouseX - prevRawMouseX;
+        int dy = mouseY - prevRawMouseY;
+        prevRawMouseX = mouseX;
+        prevRawMouseY = mouseY;
+
+        vMouseX += dx;
+        vMouseY += dy;
+
+        vMouseX = constrain(vMouseX, clampRect.x, clampRect.x + clampRect.width);
+        vMouseY = constrain(vMouseY, clampRect.y, clampRect.y + clampRect.height);
+
+        if (trialNum >= trials.size())
         {
             float timeTaken = (finishTime-startTime) / 1000f;
             float penalty = constrain(((95f-((float)hits*100f/(float)(hits+misses)))*.2f),0,100);
-            fill(255); //set fill color to white
-            //write to screen (not console)
+            fill(255);
             text("Finished!", width / 2, height / 2);
             text("Hits: " + hits, width / 2, height / 2 + 20);
             text("Misses: " + misses, width / 2, height / 2 + 40);
@@ -80,92 +105,80 @@ public class Main extends PApplet
             text("Total time taken: " + timeTaken + " sec", width / 2, height / 2 + 80);
             text("Average time for each button: " + nf((timeTaken)/(float)(hits+misses),0,3) + " sec", width / 2, height / 2 + 100);
             text("Average time for each button + penalty: " + nf(((timeTaken)/(float)(hits+misses) + penalty),0,3) + " sec", width / 2, height / 2 + 140);
-            return; //return, nothing else to do now test is over
+            return;
         }
 
-        fill(255); //set fill color to white
-        text((trialNum + 1) + " of " + trials.size(), 40, 20); //display what trial the user is on
+        fill(255);
+        text((trialNum + 1) + " of " + trials.size(), 40, 20);
 
-        for (int i = 0; i < 16; i++)// for all button
-            drawButton(i); //draw button
+        for (int i = 0; i < 16; i++)
+            drawButton(i);
 
-        fill(255, 0, 0, 200); // set fill color to translucent red
-        ellipse(mouseX, mouseY, 20, 20); //draw user cursor as a circle with a diameter of 20
+        // draw clamp border
+        noFill();
+        stroke(255);
+        strokeWeight(2);
+        rect(clampRect.x, clampRect.y, clampRect.width, clampRect.height);
+        noStroke();
+        strokeWeight(1);
 
+        // draw default cursor indicator but at CLAMPED position
+        fill(255, 0, 0, 200);
+        ellipse(vMouseX, vMouseY, 20, 20);
     }
 
-    public void mousePressed() // test to see if hit was in target!
+    public void mousePressed()
     {
-        if (trialNum >= trials.size()) //check if task is done
+        if (trialNum >= trials.size())
             return;
 
-        if (trialNum == 0) //check if first click, if so, record start time
+        if (trialNum == 0)
             startTime = millis();
 
-        if (trialNum == trials.size() - 1) //check if final click
+        if (trialNum == trials.size() - 1)
         {
             finishTime = millis();
-            //write to terminal some output:
             System.out.println("we're all done!");
         }
 
         Rectangle bounds = getButtonLocation(trials.get(trialNum));
 
-        //check to see if cursor was inside button
-        if ((mouseX > bounds.x && mouseX < bounds.x + bounds.width) && (mouseY > bounds.y && mouseY < bounds.y + bounds.height)) // test to see if hit was within bounds
+        // DEFAULT HIT TEST, but using CLAMPED cursor position
+        if ((vMouseX > bounds.x && vMouseX < bounds.x + bounds.width) &&
+                (vMouseY > bounds.y && vMouseY < bounds.y + bounds.height))
         {
-            System.out.println("HIT! " + trialNum + " " + (millis() - startTime)); // success
+            System.out.println("HIT! " + trialNum + " " + (millis() - startTime));
             hits++;
         } else
         {
-            System.out.println("MISSED! " + trialNum + " " + (millis() - startTime)); // fail
+            System.out.println("MISSED! " + trialNum + " " + (millis() - startTime));
             misses++;
         }
 
-        trialNum++; // Increment trial number
-
-        //in this example design, I move the cursor back to the middle after each click
-        //robot.mouseMove(width/2, (height)/2); //on click, move cursor to roughly center of window!
+        trialNum++;
     }
 
-    //probably shouldn't have to edit this method
-    public Rectangle getButtonLocation(int i) //for a given button ID, what is its location and size
+    public Rectangle getButtonLocation(int i)
     {
         int x = (i % 4) * (padding + buttonSize) + margin;
         int y = (i / 4) * (padding + buttonSize) + margin;
-
         return new Rectangle(x, y, buttonSize, buttonSize);
     }
 
-    //you can edit this method to change how buttons appear
     public void drawButton(int i)
     {
         Rectangle bounds = getButtonLocation(i);
 
-        if (trials.get(trialNum) == i) // see if current button is the target
-            fill(0, 255, 255); // if so, fill cyan
+        // DEFAULT: target is cyan
+        if (trials.get(trialNum) == i)
+            fill(0, 255, 255);
         else
-            fill(200); // if not, fill gray
+            fill(200);
 
         rect(bounds.x, bounds.y, bounds.width, bounds.height);
     }
 
-    public void mouseMoved()
-    {
-        //can do stuff everytime the mouse is moved (i.e., not clicked)
-        //https://processing.org/reference/mouseMoved_.html
-    }
-
-    public void mouseDragged()
-    {
-        //can do stuff everytime the mouse is dragged
-        //https://processing.org/reference/mouseDragged_.html
-    }
-
-    public void keyPressed()
-    {
-        //can use the keyboard if you wish
-        //https://processing.org/reference/keyTyped_.html
-        //https://processing.org/reference/keyCode.html
-    }
+    public void mouseMoved() { }
+    public void mouseDragged() { }
+    public void keyPressed() { }
 }
