@@ -19,7 +19,7 @@ public class Main extends PApplet
     int misses = 0;
     Robot robot;
 
-    int numRepeats = 1;
+    int numRepeats = 2;
 
     // === Enlarged cursor hitbox ===
     final int cursorRadius = 35;   // visual + hit radius (pixels)
