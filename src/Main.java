@@ -21,7 +21,7 @@ public class Main extends PApplet
     int misses = 0; //number of missed clicks
     Robot robot; //initialized in setup
 
-    int numRepeats = 1; //sets the number of times each button repeats in the test
+    int numRepeats = 2; //sets the number of times each button repeats in the test
 
 
     public static void main(String[] args) {
@@ -106,7 +106,7 @@ public class Main extends PApplet
         {
             finishTime = millis();
             //write to terminal some output:
-            System.out.println("we're all done!");
+//            System.out.println("we're all done!");
         }
 
         Rectangle bounds = getButtonLocation(trials.get(trialNum));
@@ -114,11 +114,11 @@ public class Main extends PApplet
         //check to see if cursor was inside button
         if ((mouseX > bounds.x && mouseX < bounds.x + bounds.width) && (mouseY > bounds.y && mouseY < bounds.y + bounds.height)) // test to see if hit was within bounds
         {
-            System.out.println("HIT! " + trialNum + " " + (millis() - startTime)); // success
+            System.out.println("HIT! " + trialNum + "; " + trials.get(trialNum) + "; " + (millis() - startTime)); // success
             hits++;
         } else
         {
-            System.out.println("MISSED! " + trialNum + " " + (millis() - startTime)); // fail
+            System.out.println("MISSED! " + trialNum + "; " + trials.get(trialNum) + (millis() - startTime)); // fail
             misses++;
         }
 
