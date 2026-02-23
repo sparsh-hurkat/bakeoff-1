@@ -22,7 +22,7 @@ public class Main extends PApplet
     Robot robot; //initialized in setup
     int hoveredRow = 1;
 
-    int numRepeats = 1; //sets the number of times each button repeats in the test
+    int numRepeats = 2; //sets the number of times each button repeats in the test
 
 
     public static void main(String[] args) {
