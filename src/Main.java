@@ -22,7 +22,7 @@ public class Main extends PApplet
     Robot robot; //initialized in setup
     int hoveredRow = -1; // -1 = no row hovered
 
-    int numRepeats = 1; //sets the number of times each button repeats in the test
+    int numRepeats = 2; //sets the number of times each button repeats in the test
 
 
     public static void main(String[] args) {
@@ -104,7 +104,7 @@ public class Main extends PApplet
                 for (int c = 0; c < 4; c++) {
                     float colX = margin + c * (buttonSize + padding) + buttonSize / 2f;
                     float colY = rowTop - 5; // slightly above the button
-                    text(c==3?0:c + 7, colX, colY);
+                    text(c+1, colX, colY);
                 }
             }
         }
@@ -205,10 +205,10 @@ public class Main extends PApplet
         if (hoveredRow != -1) { // only if a row is hovered
             int col = -1;
 
-            if (key == '7') col = 0;
-            else if (key == '8') col = 1;
-            else if (key == '9') col = 2;
-            else if (key == '0') col = 3;
+            if (key == '1') col = 0;
+            else if (key == '2') col = 1;
+            else if (key == '3') col = 2;
+            else if (key == '4') col = 3;
 
             if (col != -1) {
                 int buttonIndex = hoveredRow * 4 + col; // convert row + column to button index
