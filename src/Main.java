@@ -3,6 +3,7 @@ import java.awt.Rectangle;
 import java.awt.Robot;
 import java.util.ArrayList;
 import java.util.Collections;
+import javax.sound.sampled.*;
 import processing.core.PApplet;
 
 public class Main extends PApplet
@@ -32,6 +33,8 @@ public class Main extends PApplet
     // === Clamp area around grid ===
     final int clampPad = 25;
     Rectangle clampRect;
+
+    int hoveredButton = -1; // button that would be clicked right now
 
     // === Halo styling (does NOT change button hit size) ===
     final int haloPad = 10;        // how far halo extends beyond the square visually
@@ -128,11 +131,33 @@ public class Main extends PApplet
         text("Click mouse or press 'A'. Target has halo (visual only).", width / 2, 20);
 
         // Draw halo first so it appears behind the target square
-        drawTargetHalo();
+        // drawTargetHalo();
+
+        // Update which button would be clicked right now
+        hoveredButton = getMostCoveredButton((int)vMouseX, (int)vMouseY);
 
         // Draw buttons
         for (int i = 0; i < 16; i++)
             drawButton(i);
+
+        // Draw thick white border around the enlarged hovered button
+        if (hoveredButton >= 0) {
+            Rectangle hb = getButtonLocation(hoveredButton);
+            float hcx = hb.x + buttonSize / 2f;
+            float hcy = hb.y + buttonSize / 2f;
+            float hdx = vMouseX - hcx, hdy = vMouseY - hcy;
+            float hd = (float) Math.sqrt(hdx * hdx + hdy * hdy);
+            float ht = 1f - hd / 110f;
+            if (ht < 0f) ht = 0f;
+            if (ht > 1f) ht = 1f;
+            ht = ht * ht * (3f - 2f * ht);
+            float hs = buttonSize + 30f * ht;
+            noFill();
+            stroke(255, 50, 200); // hot magenta border
+            strokeWeight(5);
+            rect((int)(hcx - hs / 2f) - 3, (int)(hcy - hs / 2f) - 3, (int) hs + 6, (int) hs + 6);
+            noStroke();
+        }
 
         drawClampBorder();
         drawBigCursor((int)vMouseX, (int)vMouseY);
@@ -179,10 +204,13 @@ public class Main extends PApplet
         int chosen = getMostCoveredButton((int)vMouseX, (int)vMouseY);
         int target = trials.get(trialNum);
 
-        if (chosen == target)
+        if (chosen == target) {
             hits++;
-        else
+            playTone(880, 120);  // high ping = correct
+        } else {
             misses++;
+            playTone(180, 300);  // low buzz = wrong
+        }
 
         trialNum++;
     }
@@ -198,13 +226,27 @@ public class Main extends PApplet
     {
         Rectangle bounds = getButtonLocation(i);
 
-        // keep target square yellow (no flashing)
-        if (trialNum < trials.size() && trials.get(trialNum) == i)
-            fill(255, 255, 0);
-        else
-            fill(200);
+        // center of this button
+        float cx = bounds.x + buttonSize / 2f;
+        float cy = bounds.y + buttonSize / 2f;
 
-        rect(bounds.x, bounds.y, bounds.width, bounds.height);
+        // grow based on proximity of virtual cursor (max +30px, smooth)
+        float ddx = vMouseX - cx, ddy = vMouseY - cy;
+        float d = (float) Math.sqrt(ddx * ddx + ddy * ddy);
+        float influence = 110f;
+        float maxGrow   = 30f;
+        float t = 1f - d / influence;
+        if (t < 0f) t = 0f;
+        if (t > 1f) t = 1f;
+        t = t * t * (3f - 2f * t); // smoothstep
+        float size = buttonSize + maxGrow * t;
+
+        if (trials.get(trialNum) == i)
+            fill(0, 255, 120);   // neon green = target
+        else
+            fill(80, 80, 255);   // electric blue = inactive
+
+        rect(cx - size / 2f, cy - size / 2f, size, size);
     }
 
     private void drawClampBorder() {
@@ -262,4 +304,29 @@ public class Main extends PApplet
 
     public void mouseMoved() {}
     public void mouseDragged() {}
+
+    private void playTone(int freqHz, int durationMs) {
+        new Thread(() -> {
+            try {
+                float sampleRate = 44100f;
+                int numSamples = (int)(sampleRate * durationMs / 1000f);
+                byte[] buf = new byte[numSamples];
+                for (int i = 0; i < numSamples; i++) {
+                    double angle = 2.0 * Math.PI * i * freqHz / sampleRate;
+                    // fade out over last 20% to avoid clicks
+                    double fade = (i < numSamples * 0.8) ? 1.0 : (numSamples - i) / (numSamples * 0.2);
+                    buf[i] = (byte)(Math.sin(angle) * 100 * fade);
+                }
+                AudioFormat af = new AudioFormat(sampleRate, 8, 1, true, false);
+                SourceDataLine line = AudioSystem.getSourceDataLine(af);
+                line.open(af, numSamples);
+                line.start();
+                line.write(buf, 0, buf.length);
+                line.drain();
+                line.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
 }
